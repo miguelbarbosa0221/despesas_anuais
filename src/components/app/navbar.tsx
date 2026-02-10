@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
 import { MESES } from "@/lib/constants"
 import { Mes } from "@/lib/types"
+import Link from "next/link"
 
 export function Navbar() {
   const { user } = useUser()
@@ -127,7 +128,9 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b bg-background">
       <div className="container flex h-16 items-center justify-between py-4">
         <div className="flex items-center gap-6">
-          <h1 className="text-xl font-bold text-primary">Anualize</h1>
+          <Link href="/dashboard">
+            <h1 className="text-xl font-bold text-primary cursor-pointer hover:opacity-90 transition-opacity">Anualize</h1>
+          </Link>
           <YearSelector />
         </div>
 
