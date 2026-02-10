@@ -32,16 +32,6 @@ export async function addDespesa(
   try {
     const expensesRef = collection(db, "usuarios", userId, "despesas")
 
-    const q = query(
-      expensesRef,
-      where("ano", "==", data.ano),
-      where("descricao", "==", data.descricao)
-    )
-    const existing = await getDocs(q)
-    if (!existing.empty) {
-      return { success: false, error: "Já existe uma despesa com essa descrição neste ano." }
-    }
-
     await addDoc(expensesRef, {
       ...data,
       uid: userId,
