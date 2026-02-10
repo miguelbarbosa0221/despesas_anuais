@@ -3,15 +3,15 @@
  * data is partitioned by user. Each user has complete control over their own
  * data tree, and no user can see or modify another user's data.
  *
- * Data Structure: The data is organized hierarchically. A top-level 'users'
+ * Data Structure: The data is organized hierarchically. A top-level 'usuarios'
  * collection holds user profile documents. Each user document then contains a
- * nested 'expenses' subcollection for that user's specific financial data.
- * The path itself (/users/{userId}/...) is the primary mechanism for security.
+ * nested 'despesas' subcollection for that user's specific financial data.
+ * The path itself (/usuarios/{userId}/...) is the primary mechanism for security.
  *
  * Key Security Decisions:
- * - User Enumeration is Disallowed: Listing the top-level '/users' collection is
+ * - User Enumeration is Disallowed: Listing the top-level '/usuarios' collection is
  *   explicitly forbidden to protect user privacy.
- * - Strict Ownership: All access to a user's data tree (/users/{userId} and
+ * - Strict Ownership: All access to a user's data tree (/usuarios/{userId} and
  *   its subcollections) is granted only to the authenticated user whose UID
  *   matches the {userId} in the path.
  * - Path and Data Consistency: On creation, documents must contain an ID field
@@ -19,7 +19,7 @@
  *   document path, ensuring relational integrity. This field is immutable.
  *
  * Denormalization for Authorization: No complex denormalization is needed.
- * The hierarchical structure (/users/{userId}/...) provides a direct and
+ * The hierarchical structure (/usuarios/{userId}/...) provides a direct and
  * performant way to check ownership using the document path. The 'uid' field
  * on expense documents serves as an integrity check rather than a lookup key,
  * preventing data from being associated with the wrong user.
@@ -105,14 +105,14 @@ service cloud.firestore {
 
     /**
      * @description Manages user profile documents.
-     * @path /users/{userId}
+     * @path /usuarios/{userId}
      * @allow (get) A signed-in user to read their own profile.
      * @allow (create) A new user to create their own profile document.
      * @deny (list) Any user, to prevent enumerating all app users.
      * @deny (update) A user trying to modify another user's profile.
      * @principle Restricts access to a user's own data tree.
      */
-    match /users/{userId} {
+    match /usuarios/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
       allow create: if isOwner(userId) && hasValidUserDataForCreate(userId);
@@ -121,14 +121,14 @@ service cloud.firestore {
 
       /**
        * @description Manages the expenses for a specific user.
-       * @path /users/{userId}/expenses/{expenseId}
+       * @path /usuarios/{userId}/despesas/{expenseId}
        * @allow (list) A user to query all of their own expenses.
        * @allow (create) A user to add a new expense to their own account.
        * @deny (get) A user trying to read a specific expense belonging to someone else.
        * @deny (delete) A user trying to delete another user's expense.
        * @principle Enforces document ownership for all operations within a user's subcollection.
        */
-      match /expenses/{expenseId} {
+      match /despesas/{expenseId} {
         allow get: if isOwner(userId);
         allow list: if isOwner(userId);
         allow create: if isOwner(userId) && hasValidExpenseDataForCreate(userId);

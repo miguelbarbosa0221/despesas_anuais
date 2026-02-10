@@ -93,42 +93,42 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/usuarios/{userId}",
         "definition": {
           "entityName": "User",
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. The 'userId' corresponds to the Firebase Auth UID.",
+          "description": "Armazena informações do perfil do usuário. O 'userId' corresponde ao UID do Firebase Auth.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+              "description": "O identificador único do usuário, correspondente ao UID do Firebase Auth."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}/expenses/{expenseId}",
+        "path": "/usuarios/{userId}/despesas/{expenseId}",
         "definition": {
           "entityName": "Expense",
           "schema": {
             "$ref": "#/backend/entities/Expense"
           },
-          "description": "Stores expense documents for a specific user. Includes the 'uid' field which must match the 'userId' path parameter for authorization. No denormalized fields required due to path-based ownership.",
+          "description": "Armazena os documentos de despesas de um usuário específico. Inclui o campo 'uid' que deve corresponder ao parâmetro de caminho 'userId' para autorização.",
           "params": [
             {
               "name": "userId",
-              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+              "description": "O identificador único do usuário, correspondente ao UID do Firebase Auth."
             },
             {
               "name": "expenseId",
-              "description": "The unique identifier for the expense document."
+              "description": "O identificador único para o documento de despesa."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to store user expenses on a yearly basis.  Expenses are stored within a user-specific collection to ensure data privacy and security. The structure prioritizes Authorization Independence to enable secure and atomic operations. By storing expenses under `/users/{uid}/expenses/{expenseId}`, we ensure that access control is directly tied to the user's ID, simplifying security rules and eliminating the need for complex hierarchical checks.\n\nAuthorization Independence is achieved because each expense document inherently belongs to a specific user, identified by `uid`. The security rules only need to verify that `request.auth.uid == resource.data.uid` when creating or modifying an expense. This avoids any need to `get()` data from parent documents (users) to validate access. This also facilitates atomic batch writes for features like copying expenses to the next year.\n\nQAPs are supported by the direct ownership structure `/users/{uid}/expenses/{expenseId}`.  Listing operations are secured by verifying that `request.auth.uid == userId` within the rules, guaranteeing that users can only list expenses that belong to them."
+    "reasoning": "A estrutura do Firestore foi projetada para armazenar as despesas do usuário anualmente. As despesas são armazenadas em uma coleção específica do usuário para garantir privacidade e segurança dos dados. A estrutura prioriza a Independência de Autorização para permitir operações seguras e atômicas. Ao armazenar as despesas em `/usuarios/{uid}/despesas/{expenseId}`, garantimos que o controle de acesso está diretamente ligado ao ID do usuário, simplificando as regras de segurança e eliminando a necessidade de verificações hierárquicas complexas.\n\nA Independência de Autorização é alcançada porque cada documento de despesa pertence inerentemente a um usuário específico, identificado por `uid`. As regras de segurança precisam apenas verificar se `request.auth.uid == resource.data.uid` ao criar ou modificar uma despesa. Isso evita a necessidade de `get()` em documentos pais (usuários) para validar o acesso. Isso também facilita escritas em lote atômicas para recursos como copiar despesas para o próximo ano.\n\nAs QAPs são suportadas pela estrutura de propriedade direta `/usuarios/{uid}/despesas/{expenseId}`. As operações de listagem são protegidas verificando se `request.auth.uid == userId` nas regras, garantindo que os usuários só possam listar as despesas que lhes pertencem."
   }
 }
