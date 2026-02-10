@@ -5,8 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword
 } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { connectAuthEmulator } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
   throw new Error("Missing NEXT_PUBLIC_FIREBASE_API_KEY environment variable. Please check your .env file.");
@@ -24,20 +23,6 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-  // Check if emulators are already connected
-  // This is a bit of a hack to avoid re-connecting on hot reloads
-  const anyAuth = auth as any;
-  if (!anyAuth._isEmulator) {
-    try {
-        connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-        connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    } catch (e) {
-        console.warn("Error connecting to Firebase emulators. This is normal if they are not running.");
-    }
-  }
-}
 
 const signOut = () => firebaseSignOut(auth);
 
