@@ -13,29 +13,45 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { useApp } from "@/context/app-context"
-import { useAuth } from "@/context/auth-context"
-import { resetarAno } from "@/app/actions"
+import { useUser, useFirestore } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
+import { collection, getDocs, query, where, writeBatch } from "firebase/firestore"
 
 export function DangerZone() {
-  const { user } = useAuth()
+  const { user } = useUser()
+  const firestore = useFirestore()
   const { selectedYear } = useApp()
   const { toast } = useToast()
   const [isResetting, setIsResetting] = useState(false)
 
   const handleReset = async () => {
-    if (!user) return
+    if (!user || !firestore) return
     setIsResetting(true)
-    const result = await resetarAno(user.uid, selectedYear)
-    if (result.success) {
+    try {
+      const expensesRef = collection(firestore, "usuarios", user.uid, "despesas")
+      const q = query(expensesRef, where("ano", "==", selectedYear))
+      const querySnapshot = await getDocs(q)
+  
+      if (querySnapshot.empty) {
+        toast({ variant: "destructive", title: "Erro", description: `Nenhuma despesa para o ano ${selectedYear}.` })
+        setIsResetting(false)
+        return
+      }
+  
+      const batch = writeBatch(firestore)
+      querySnapshot.forEach((document) => {
+        batch.delete(document.ref)
+      })
+  
+      await batch.commit()
       toast({
         title: "Sucesso!",
         description: `Todas as despesas de ${selectedYear} foram removidas.`,
       })
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsResetting(false)
   }

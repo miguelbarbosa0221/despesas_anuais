@@ -5,7 +5,6 @@ import {
   LogOut,
   Settings,
   User,
-  Sparkles,
   Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,26 +17,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useAuth } from "@/context/auth-context"
-import { signOut } from "@/lib/firebase"
+import { useUser, useAuth, useFirestore } from "@/firebase"
+import { signOut } from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { YearSelector } from "./year-selector"
 import { useApp } from "@/context/app-context"
-import { gerarProximoAno } from "@/app/actions"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { AIAdvisor } from "./ai-advisor"
 import { cn } from "@/lib/utils"
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore"
+import { MESES } from "@/lib/constants"
+import { Mes } from "@/lib/types"
 
 export function Navbar() {
-  const { user } = useAuth()
+  const { user } = useUser()
+  const auth = useAuth()
+  const firestore = useFirestore()
   const { setSheetOpen, selectedYear } = useApp()
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
   const { toast } = useToast()
 
   const handleSignOut = async () => {
-    await signOut()
+    await signOut(auth)
     router.push("/login")
   }
 
@@ -48,18 +51,66 @@ export function Navbar() {
     currentMonth === 11 && selectedYear === currentYear
 
   const handleGenerateNextYear = async () => {
-    if (!user) return
+    if (!user || !firestore) return
     setIsGenerating(true)
     try {
-      const result = await gerarProximoAno(user.uid, selectedYear)
-      if (result.success) {
+      const expensesRef = collection(firestore, "usuarios", user.uid, "despesas")
+      const q = query(
+        expensesRef,
+        where("ano", "==", selectedYear),
+        where("arquivado", "==", false)
+      )
+  
+      const querySnapshot = await getDocs(q)
+      if (querySnapshot.empty) {
         toast({
-          title: "Sucesso!",
-          description: `Ano de ${selectedYear + 1} gerado com base em ${selectedYear}.`,
+            variant: "destructive",
+            title: "Erro",
+            description: "Nenhuma despesa ativa encontrada para o ano atual.",
         })
-      } else {
-        throw new Error(result.error)
+        setIsGenerating(false)
+        return
       }
+  
+      const batch = writeBatch(firestore)
+      const proximoAno = selectedYear + 1
+  
+      // Check if next year already has expenses
+      const nextYearQuery = query(expensesRef, where("ano", "==", proximoAno))
+      const nextYearSnapshot = await getDocs(nextYearQuery)
+      if (!nextYearSnapshot.empty) {
+          toast({ variant: "destructive", title: "Erro", description: `Já existem despesas para o ano de ${proximoAno}.` })
+          setIsGenerating(false)
+          return
+      }
+  
+      const initialValores = MESES.reduce((acc, mes) => {
+        acc[mes] = 0
+        return acc
+      }, {} as Record<Mes, number>)
+  
+      const initialStatusPagamento = MESES.reduce((acc, mes) => {
+        acc[mes] = false
+        return acc
+      }, {} as Record<Mes, boolean>)
+  
+      querySnapshot.forEach((document) => {
+        const despesa = document.data()
+        const newDocRef = doc(collection(firestore, "usuarios", user.uid, "despesas"))
+        batch.set(newDocRef, {
+          ...despesa,
+          ano: proximoAno,
+          valores: initialValores,
+          statusPagamento: initialStatusPagamento,
+          createdAt: serverTimestamp(),
+        })
+      })
+  
+      await batch.commit()
+      toast({
+        title: "Sucesso!",
+        description: `Ano de ${selectedYear + 1} gerado com base em ${selectedYear}.`,
+      })
     } catch (error: any) {
       toast({
         variant: "destructive",

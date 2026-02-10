@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
-import { AuthProvider } from '@/context/auth-context';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AppProvider } from '@/context/app-context';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -26,12 +26,12 @@ export default function RootLayout({
           inter.variable
         )}
       >
-        <AuthProvider>
+        <FirebaseClientProvider>
           <AppProvider>
             {children}
             <Toaster />
           </AppProvider>
-        </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

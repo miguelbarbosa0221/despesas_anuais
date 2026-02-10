@@ -14,7 +14,7 @@ import { Loader2, Sparkles, AlertTriangle } from "lucide-react"
 import { expenseAnomalyDetection } from "@/ai/flows/expense-anomaly-detection"
 import { useExpenses } from "@/hooks/use-expenses"
 import { useApp } from "@/context/app-context"
-import { useAuth } from "@/context/auth-context"
+import { useUser } from "@/firebase"
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert"
 
 export function AIAdvisor() {
@@ -22,7 +22,7 @@ export function AIAdvisor() {
   const [isLoading, setIsLoading] = useState(false)
   const [advice, setAdvice] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const { user } = useAuth()
+  const { user } = useUser()
   const { selectedYear } = useApp()
   const { expenses } = useExpenses(user?.uid, selectedYear)
 

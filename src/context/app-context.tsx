@@ -22,7 +22,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [selectedYear, setSelectedYear] = useLocalStorage(
+  const [selectedYear, setSelectedYear] = useLocalStorage<number>(
     "anoSelecionado",
     new Date().getFullYear()
   )

@@ -8,21 +8,21 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useApp } from "@/context/app-context"
-import { useAuth } from "@/context/auth-context"
-import { db } from "@/lib/firebase"
+import { useUser, useFirestore } from "@/firebase"
 import { collection, getDocs, query } from "firebase/firestore"
 import { useEffect, useState } from "react"
 
 export function YearSelector() {
   const { selectedYear, setSelectedYear } = useApp()
-  const { user } = useAuth()
+  const { user } = useUser()
+  const firestore = useFirestore()
   const [years, setYears] = useState<number[]>([])
 
   useEffect(() => {
     const fetchYears = async () => {
-      if (!user) return
+      if (!user || !firestore) return
       try {
-        const q = query(collection(db, "usuarios", user.uid, "despesas"))
+        const q = query(collection(firestore, "usuarios", user.uid, "despesas"))
         const querySnapshot = await getDocs(q)
         const availableYears = new Set<number>()
         querySnapshot.forEach((doc) => {
@@ -41,7 +41,7 @@ export function YearSelector() {
     }
 
     fetchYears()
-  }, [user])
+  }, [user, firestore])
 
   return (
     <Select

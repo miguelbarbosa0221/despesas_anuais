@@ -15,12 +15,11 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { useAuth } from "@/context/auth-context"
+import { useUser, useAuth } from "@/firebase"
 import {
-  auth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-} from "@/lib/firebase"
+} from "firebase/auth"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -48,7 +47,8 @@ const registerSchema = z.object({
 })
 
 export default function LoginPage() {
-  const { user, loading } = useAuth()
+  const { user, isUserLoading: loading } = useUser()
+  const auth = useAuth()
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)

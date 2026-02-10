@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { useApp } from "@/context/app-context"
 import { useExpenses } from "@/hooks/use-expenses"
-import { useAuth } from "@/context/auth-context"
+import { useUser, useFirestore } from "@/firebase"
 import { useEffect, useState } from "react"
 import { Despesa } from "@/lib/types"
 import { Input } from "../ui/input"
@@ -22,12 +22,6 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react"
-import {
-  arquivarDespesa,
-  excluirDespesa,
-  togglePagamento,
-  updateDespesaCell,
-} from "@/app/actions"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "../ui/separator"
 import {
@@ -41,9 +35,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../ui/alert-dialog"
+import {
+  doc,
+  updateDoc,
+  runTransaction,
+  deleteDoc,
+} from "firebase/firestore"
 
 export function CellActionsModal() {
-  const { user } = useAuth()
+  const { user } = useUser()
+  const firestore = useFirestore()
   const { cellModal, setCellModal, selectedYear } = useApp()
   const { expenses } = useExpenses(user?.uid, selectedYear)
   const { toast } = useToast()
@@ -69,65 +70,79 @@ export function CellActionsModal() {
   }
 
   const handleUpdateValor = async () => {
-    if (!user || !expense || cellModal.mes === null) return
+    if (!user || !expense || cellModal.mes === null || !firestore) return
     setIsSubmitting(true)
-    const result = await updateDespesaCell(user.uid, expense.id, cellModal.mes, { valor })
-    if (result.success) {
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", expense.id)
+      const updateData: { [key: string]: any } = {}
+      updateData[`valores.${cellModal.mes}`] = valor
+      await updateDoc(docRef, updateData)
       toast({ title: "Valor atualizado!" })
       handleClose()
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsSubmitting(false)
   }
 
   const handleTogglePagamento = async () => {
-    if (!user || !expense || cellModal.mes === null) return
+    if (!user || !expense || cellModal.mes === null || !firestore) return
     setIsSubmitting(true)
-    const result = await togglePagamento(user.uid, expense.id, cellModal.mes)
-    if (!result.success) {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
-    } else {
-        toast({ title: "Status de pagamento atualizado!" })
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", expense.id)
+      await runTransaction(firestore, async (transaction) => {
+        const sfDoc = await transaction.get(docRef)
+        if (!sfDoc.exists()) {
+          throw "Documento não existe!"
+        }
+        const currentStatus = sfDoc.data().statusPagamento[cellModal.mes!]
+        transaction.update(docRef, { [`statusPagamento.${cellModal.mes!}`]: !currentStatus })
+      })
+      toast({ title: "Status de pagamento atualizado!" })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsSubmitting(false)
   }
 
   const handleZerar = async () => {
-    if (!user || !expense || cellModal.mes === null) return
+    if (!user || !expense || cellModal.mes === null || !firestore) return
     setIsSubmitting(true)
-    const result = await updateDespesaCell(user.uid, expense.id, cellModal.mes, { valor: 0 })
-    if (result.success) {
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", expense.id)
+      await updateDoc(docRef, { [`valores.${cellModal.mes}`]: 0 })
       toast({ title: "Valor zerado!" })
       setValor(0)
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsSubmitting(false)
   }
 
   const handleArquivar = async () => {
-    if (!user || !expense) return
+    if (!user || !expense || !firestore) return
     setIsSubmitting(true)
-    const result = await arquivarDespesa(user.uid, expense.id)
-    if (result.success) {
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", expense.id)
+      await updateDoc(docRef, { arquivado: true })
       toast({ title: "Despesa arquivada." })
       handleClose()
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsSubmitting(false)
   }
 
   const handleExcluir = async () => {
-    if (!user || !expense) return
+    if (!user || !expense || !firestore) return
     setIsSubmitting(true)
-    const result = await excluirDespesa(user.uid, expense.id)
-    if (result.success) {
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", expense.id)
+      await deleteDoc(docRef)
       toast({ title: "Despesa excluída." })
       handleClose()
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setIsSubmitting(false)
   }

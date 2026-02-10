@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useExpenses } from "@/hooks/use-expenses"
-import { useAuth } from "@/context/auth-context"
+import { useUser } from "@/firebase"
 import { useApp } from "@/context/app-context"
 import { MESES } from "@/lib/constants"
 import { cn } from "@/lib/utils"
@@ -27,7 +27,7 @@ function formatCurrency(value: number) {
 }
 
 export function ExpenseTable() {
-  const { user } = useAuth()
+  const { user } = useUser()
   const { selectedYear, setCellModal } = useApp()
   const { expenses, loading } = useExpenses(user?.uid, selectedYear)
 

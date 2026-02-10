@@ -32,10 +32,10 @@ import {
 } from "../ui/select"
 import { MESES } from "@/lib/constants"
 import { Mes } from "@/lib/types"
-import { useAuth } from "@/context/auth-context"
-import { addDespesa } from "@/app/actions"
+import { useUser, useFirestore } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
+import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 
 const formSchema = z.object({
   descricao: z.string().min(2, {
@@ -51,7 +51,8 @@ const formSchema = z.object({
 })
 
 export function AddExpenseForm() {
-  const { user } = useAuth()
+  const { user } = useUser()
+  const firestore = useFirestore()
   const { sheetOpen, setSheetOpen, selectedYear } = useApp()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
@@ -69,7 +70,7 @@ export function AddExpenseForm() {
   const isRecorrente = form.watch("recorrente")
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) {
+    if (!user || !firestore) {
         toast({ variant: "destructive", title: "Erro de autenticação" })
         return
     }
@@ -92,18 +93,24 @@ export function AddExpenseForm() {
         descricao: values.descricao,
         vencimento: values.vencimento,
         valores,
-        statusPagamento
+        statusPagamento,
+        uid: user.uid,
+        arquivado: false,
+        createdAt: serverTimestamp(),
     };
 
-    const result = await addDespesa(user.uid, despesaData);
-    if(result.success) {
+    try {
+        const expensesRef = collection(firestore, "usuarios", user.uid, "despesas")
+        await addDoc(expensesRef, despesaData)
         toast({ title: "Sucesso!", description: "Despesa adicionada."})
         form.reset();
         setSheetOpen(false);
-    } else {
-        toast({ variant: "destructive", title: "Erro", description: result.error})
+    } catch (error: any) {
+        console.error(error);
+        toast({ variant: "destructive", title: "Erro", description: error.message || "Não foi possível adicionar a despesa."})
+    } finally {
+        setIsSubmitting(false)
     }
-    setIsSubmitting(false)
   }
 
   return (

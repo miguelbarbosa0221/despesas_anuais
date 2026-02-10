@@ -1,7 +1,7 @@
 "use client"
 
 import { useArchivedExpenses } from "@/hooks/use-expenses"
-import { useAuth } from "@/context/auth-context"
+import { useUser, useFirestore } from "@/firebase"
 import { useApp } from "@/context/app-context"
 import { Button } from "../ui/button"
 import {
@@ -12,13 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table"
-import { restaurarDespesa } from "@/app/actions"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Undo2 } from "lucide-react"
 import { useState } from "react"
+import { doc, updateDoc } from "firebase/firestore"
 
 export function ArchivedExpenses() {
-  const { user } = useAuth()
+  const { user } = useUser()
+  const firestore = useFirestore()
   const { selectedYear } = useApp()
   const { expenses, loading } = useArchivedExpenses(user?.uid, selectedYear)
   const { toast } = useToast()
@@ -27,11 +28,12 @@ export function ArchivedExpenses() {
   const handleRestore = async (id: string) => {
     if (!user) return
     setRestoringId(id)
-    const result = await restaurarDespesa(user.uid, id)
-    if (result.success) {
+    try {
+      const docRef = doc(firestore, "usuarios", user.uid, "despesas", id)
+      await updateDoc(docRef, { arquivado: false })
       toast({ title: "Despesa restaurada." })
-    } else {
-      toast({ variant: "destructive", title: "Erro", description: result.error })
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message })
     }
     setRestoringId(null)
   }

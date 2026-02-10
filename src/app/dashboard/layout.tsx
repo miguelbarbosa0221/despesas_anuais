@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from "@/context/auth-context"
+import { useUser } from "@/firebase"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
@@ -11,7 +11,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, loading } = useAuth()
+  const { user, isUserLoading: loading } = useUser()
   const router = useRouter()
 
   useEffect(() => {
