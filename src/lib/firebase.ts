@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut } from "firebase/auth";
+import { 
+  getAuth, 
+  signOut as firebaseSignOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { connectAuthEmulator } from "firebase/auth";
 
@@ -19,7 +24,6 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
 
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   // Check if emulators are already connected
@@ -35,7 +39,12 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   }
 }
 
-const signInWithGoogle = () => signInWithPopup(auth, provider);
 const signOut = () => firebaseSignOut(auth);
 
-export { auth, db, signInWithGoogle, signOut };
+export { 
+  auth, 
+  db, 
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+};
