@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Represents a user's expense within the Anualize application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the expense. (Primary Key)"
+        },
+        "uid": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Expense)"
+        },
+        "year": {
+          "type": "number",
+          "description": "The year the expense belongs to (e.g., 2025)."
+        },
+        "dueDate": {
+          "type": "number",
+          "description": "The day of the month the expense is due (1-31)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
+        },
+        "archived": {
+          "type": "boolean",
+          "description": "Indicates whether the expense is archived (soft deleted)."
+        },
+        "values": {
+          "type": "array",
+          "description": "Monetary values for each month of the year. Index matches months array, with Jan = 0.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "paymentStatuses": {
+          "type": "array",
+          "description": "Payment statuses (true = paid, false = pending) for each month. Index matches months array, with Jan = 0.",
+          "items": {
+            "type": "boolean"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the expense was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "uid",
+        "year",
+        "dueDate",
+        "description",
+        "archived",
+        "values",
+        "paymentStatuses",
+        "createdAt"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Anualize application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user.  This corresponds to the Firebase Auth UID. (Primary Key)"
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. The 'userId' corresponds to the Firebase Auth UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Stores expense documents for a specific user. Includes the 'uid' field which must match the 'userId' path parameter for authorization. No denormalized fields required due to path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, matching the Firebase Auth UID."
+            },
+            {
+              "name": "expenseId",
+              "description": "The unique identifier for the expense document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to store user expenses on a yearly basis.  Expenses are stored within a user-specific collection to ensure data privacy and security. The structure prioritizes Authorization Independence to enable secure and atomic operations. By storing expenses under `/users/{uid}/expenses/{expenseId}`, we ensure that access control is directly tied to the user's ID, simplifying security rules and eliminating the need for complex hierarchical checks.\n\nAuthorization Independence is achieved because each expense document inherently belongs to a specific user, identified by `uid`. The security rules only need to verify that `request.auth.uid == resource.data.uid` when creating or modifying an expense. This avoids any need to `get()` data from parent documents (users) to validate access. This also facilitates atomic batch writes for features like copying expenses to the next year.\n\nQAPs are supported by the direct ownership structure `/users/{uid}/expenses/{expenseId}`.  Listing operations are secured by verifying that `request.auth.uid == userId` within the rules, guaranteeing that users can only list expenses that belong to them."
+  }
+}

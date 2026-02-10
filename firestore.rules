@@ -1,0 +1,140 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model where all
+ * data is partitioned by user. Each user has complete control over their own
+ * data tree, and no user can see or modify another user's data.
+ *
+ * Data Structure: The data is organized hierarchically. A top-level 'users'
+ * collection holds user profile documents. Each user document then contains a
+ * nested 'expenses' subcollection for that user's specific financial data.
+ * The path itself (/users/{userId}/...) is the primary mechanism for security.
+ *
+ * Key Security Decisions:
+ * - User Enumeration is Disallowed: Listing the top-level '/users' collection is
+ *   explicitly forbidden to protect user privacy.
+ * - Strict Ownership: All access to a user's data tree (/users/{userId} and
+ *   its subcollections) is granted only to the authenticated user whose UID
+ *   matches the {userId} in the path.
+ * - Path and Data Consistency: On creation, documents must contain an ID field
+ *   ('id' for users, 'uid' for expenses) that matches the {userId} from the
+ *   document path, ensuring relational integrity. This field is immutable.
+ *
+ * Denormalization for Authorization: No complex denormalization is needed.
+ * The hierarchical structure (/users/{userId}/...) provides a direct and
+ * performant way to check ownership using the document path. The 'uid' field
+ * on expense documents serves as an integrity check rather than a lookup key,
+ * preventing data from being associated with the wrong user.
+ *
+ * Structural Segregation: The design naturally segregates each user's private
+ * data into their own document tree, making it an ideal pattern for security
+ * and query performance. There is no concept of public or shared data in this
+ * model.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------------
+    // Helper Functions
+    // ------------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the primary function for verifying document ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if a document exists before the current request.
+     * Used for safe updates and deletes to prevent acting on non-existent data.
+     */
+    function isExistingDoc() {
+      return resource != null;
+    }
+
+    /**
+     * Combines ownership and existence checks for state-changing operations
+     * like update and delete.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && isExistingDoc();
+    }
+
+    /**
+     * On user document creation, validates that the document's internal 'id'
+     * field matches the user's auth UID, enforcing relational integrity.
+     */
+    function hasValidUserDataForCreate(userId) {
+      return request.resource.data.id == userId;
+    }
+
+    /**
+     * On user document update, ensures the 'id' field cannot be changed.
+     */
+    function isUserDataImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+
+    /**
+     * On expense creation, validates that the 'uid' field in the new document
+     * correctly points back to the parent user document's ID.
+     */
+    function hasValidExpenseDataForCreate(userId) {
+      return request.resource.data.uid == userId;
+    }
+
+    /**
+     * On expense update, ensures the 'uid' (owner link) is immutable.
+     */
+    function isExpenseDataImmutable() {
+      return request.resource.data.uid == resource.data.uid;
+    }
+
+
+    // ------------------------------------------------------------------------
+    // Collection Rules
+    // ------------------------------------------------------------------------
+
+    /**
+     * @description Manages user profile documents.
+     * @path /users/{userId}
+     * @allow (get) A signed-in user to read their own profile.
+     * @allow (create) A new user to create their own profile document.
+     * @deny (list) Any user, to prevent enumerating all app users.
+     * @deny (update) A user trying to modify another user's profile.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && hasValidUserDataForCreate(userId);
+      allow update: if isExistingOwner(userId) && isUserDataImmutable();
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Manages the expenses for a specific user.
+       * @path /users/{userId}/expenses/{expenseId}
+       * @allow (list) A user to query all of their own expenses.
+       * @allow (create) A user to add a new expense to their own account.
+       * @deny (get) A user trying to read a specific expense belonging to someone else.
+       * @deny (delete) A user trying to delete another user's expense.
+       * @principle Enforces document ownership for all operations within a user's subcollection.
+       */
+      match /expenses/{expenseId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && hasValidExpenseDataForCreate(userId);
+        allow update: if isExistingOwner(userId) && isExpenseDataImmutable();
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+  }
+}
