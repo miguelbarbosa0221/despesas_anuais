@@ -6,7 +6,7 @@ import { CellActionsModal } from "@/components/app/cell-actions-modal"
 export default function DashboardPage() {
   return (
     <DashboardShell>
-      <div className="container mx-auto py-8">
+      <div className="w-full px-8 py-8">
         <div className="mb-8">
           <AddExpenseForm />
         </div>
