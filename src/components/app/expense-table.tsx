@@ -56,31 +56,39 @@ export function ExpenseTable() {
 
   // Calculates the projection average based on past PAID months
   const projectionAverage = React.useMemo(() => {
-    if (selectedYear > currentYear) return 0 // No history for future years
+    if (selectedYear > currentYear) return 0; // No history for future years
 
-    const isPastYear = selectedYear < currentYear
-    const effectiveCurrentMonthIndex = isPastYear ? 11 : currentMonthIndex
+    const isPastYear = selectedYear < currentYear;
 
+    // Calculate total paid amount for each month
     const paidMonthlyTotals = MESES.map((mes) =>
       expenses.reduce((sum, expense) => {
         if (expense.statusPagamento[mes]) {
-          return sum + expense.valores[mes]
+          return sum + expense.valores[mes];
         }
-        return sum
+        return sum;
       }, 0)
-    )
+    );
 
-    const pastPaidTotals = paidMonthlyTotals
-      .slice(0, effectiveCurrentMonthIndex) // Use slice(0, index) to exclude current month from avg
-      .filter((total) => total > 0)
+    // Determine which months to use for the average calculation
+    const relevantPaidTotals = isPastYear
+      ? paidMonthlyTotals // Use all months for a past year
+      : paidMonthlyTotals.slice(0, currentMonthIndex); // Use months up to the current one for the current year
 
-    if (pastPaidTotals.length === 0) return 0
+    // Filter out months where nothing was paid
+    const pastPaidTotalsWithValue = relevantPaidTotals.filter(
+      (total) => total > 0
+    );
 
+    if (pastPaidTotalsWithValue.length === 0) return 0;
+
+    // Calculate the average
     const average =
-      pastPaidTotals.reduce((sum, total) => sum + total, 0) /
-      pastPaidTotals.length
-    return average
-  }, [expenses, selectedYear, currentYear, currentMonthIndex])
+      pastPaidTotalsWithValue.reduce((sum, total) => sum + total, 0) /
+      pastPaidTotalsWithValue.length;
+
+    return average;
+  }, [expenses, selectedYear, currentYear, currentMonthIndex]);
 
   // Combines actual totals with projected totals for display
   const { displayTotals, displayGrandTotal } = React.useMemo(() => {
@@ -88,11 +96,11 @@ export function ExpenseTable() {
     let grandTotal = 0
 
     MESES.forEach((mes, index) => {
-      const isFutureMonth =
+      const isFutureOrCurrentMonth =
         selectedYear > currentYear ||
-        (selectedYear === currentYear && index > currentMonthIndex)
+        (selectedYear === currentYear && index >= currentMonthIndex)
         
-      if (isFutureMonth && projectionAverage > 0 && displayTotals[mes] === 0) {
+      if (isFutureOrCurrentMonth && projectionAverage > 0 && displayTotals[mes] === 0) {
         displayTotals[mes] = projectionAverage
       }
       grandTotal += displayTotals[mes]
@@ -105,7 +113,7 @@ export function ExpenseTable() {
     selectedYear,
     currentYear,
     currentMonthIndex,
-  ])
+  ]);
 
   if (loading) {
     return (
@@ -142,24 +150,24 @@ export function ExpenseTable() {
   }
 
   return (
-    <div className="w-full rounded-lg border">
+    <div className="w-full overflow-x-auto rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[60px]">Dia</TableHead>
-            <TableHead>Descrição</TableHead>
+            <TableHead className="w-[60px] min-w-[60px]">Dia</TableHead>
+            <TableHead className="min-w-[200px]">Descrição</TableHead>
             {MESES.map((mes, index) => (
               <TableHead
                 key={mes}
                 className={cn(
-                  "text-right",
+                  "text-right min-w-[150px]",
                   index === currentMonthIndex && selectedYear === currentYear && "bg-accent/20"
                 )}
               >
                 {mes.charAt(0).toUpperCase() + mes.slice(1)}
               </TableHead>
             ))}
-            <TableHead className="text-right">Total</TableHead>
+            <TableHead className="text-right min-w-[150px]">Total</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -202,10 +210,10 @@ export function ExpenseTable() {
           <TableRow>
             <TableCell colSpan={2} className="font-bold">Total Mensal</TableCell>
             {MESES.map((mes, index) => {
-              const isFutureMonth =
+              const isFutureOrCurrentMonth =
                 selectedYear > currentYear ||
-                (selectedYear === currentYear && index > currentMonthIndex)
-              const isProjected = isFutureMonth && projectionAverage > 0 && actualMonthTotals[mes] === 0
+                (selectedYear === currentYear && index >= currentMonthIndex)
+              const isProjected = isFutureOrCurrentMonth && projectionAverage > 0 && actualMonthTotals[mes] === 0
 
               return (
                 <TableCell 
