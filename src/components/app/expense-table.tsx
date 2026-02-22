@@ -38,82 +38,44 @@ export function ExpenseTable() {
     setCellModal({ isOpen: true, despesaId, mes })
   }
 
-  // Calculates totals based on actual expense data
-  const { monthTotals: actualMonthTotals } = React.useMemo(() => {
-    const monthTotals = MESES.reduce((acc, mes) => {
-      acc[mes] = 0
-      return acc
-    }, {} as Record<Mes, number>)
+  const { displayExpenses, monthTotals, grandTotal } = React.useMemo(() => {
+    const newDisplayExpenses = expenses.map(despesa => {
+        const displayValores = { ...despesa.valores };
+        const isMesProjected: Record<Mes, boolean> = MESES.reduce((acc, mes) => ({ ...acc, [mes]: false }), {} as Record<Mes, boolean>);
 
-    expenses.forEach((expense) => {
-      MESES.forEach((mes) => {
-        monthTotals[mes] += expense.valores[mes] || 0
-      })
-    })
+        if (despesa.projetavel) {
+            const paidValues = MESES
+                .filter(mes => despesa.statusPagamento[mes])
+                .map(mes => despesa.valores[mes]);
+            
+            if (paidValues.length > 0) {
+                const totalPaid = paidValues.reduce((sum, value) => sum + value, 0);
+                const expenseProjectionAverage = totalPaid / paidValues.length;
 
-    return { monthTotals }
-  }, [expenses])
+                MESES.forEach((mes, index) => {
+                    const isFutureOrCurrentMonth = selectedYear > currentYear || (selectedYear === currentYear && index >= currentMonthIndex);
+                    const isUnpaidWithZeroValue = despesa.valores[mes] === 0;
 
-  // Calculates the projection average based on past PAID months
-  const projectionAverage = React.useMemo(() => {
-    if (selectedYear > currentYear) return 0; // No history for future years
-
-    const isPastYear = selectedYear < currentYear;
-
-    // Calculate total paid amount for each month
-    const paidMonthlyTotals = MESES.map((mes) =>
-      expenses.reduce((sum, expense) => {
-        if (expense.statusPagamento[mes]) {
-          return sum + expense.valores[mes];
+                    if (isFutureOrCurrentMonth && isUnpaidWithZeroValue) {
+                        displayValores[mes] = expenseProjectionAverage;
+                        isMesProjected[mes] = true;
+                    }
+                });
+            }
         }
-        return sum;
-      }, 0)
-    );
+        return { ...despesa, displayValores, isMesProjected };
+    });
 
-    // Determine which months to use for the average calculation
-    const relevantPaidTotals = isPastYear
-      ? paidMonthlyTotals // Use all months for a past year
-      : paidMonthlyTotals.slice(0, currentMonthIndex); // Use months up to the current one for the current year
+    const newMonthTotals = MESES.reduce((acc, mes) => {
+        acc[mes] = newDisplayExpenses.reduce((sum, expense) => sum + expense.displayValores[mes], 0);
+        return acc;
+    }, {} as Record<Mes, number>);
 
-    // Filter out months where nothing was paid
-    const pastPaidTotalsWithValue = relevantPaidTotals.filter(
-      (total) => total > 0
-    );
+    const newGrandTotal = Object.values(newMonthTotals).reduce((sum, total) => sum + total, 0);
 
-    if (pastPaidTotalsWithValue.length === 0) return 0;
+    return { displayExpenses: newDisplayExpenses, monthTotals: newMonthTotals, grandTotal: newGrandTotal };
+}, [expenses, selectedYear, currentYear, currentMonthIndex]);
 
-    // Calculate the average
-    const average =
-      pastPaidTotalsWithValue.reduce((sum, total) => sum + total, 0) /
-      pastPaidTotalsWithValue.length;
-
-    return average;
-  }, [expenses, selectedYear, currentYear, currentMonthIndex]);
-
-  // Combines actual totals with projected totals for display
-  const { displayTotals, displayGrandTotal } = React.useMemo(() => {
-    const displayTotals = { ...actualMonthTotals }
-    let grandTotal = 0
-
-    MESES.forEach((mes, index) => {
-      const isFutureOrCurrentMonth =
-        selectedYear > currentYear ||
-        (selectedYear === currentYear && index >= currentMonthIndex)
-        
-      if (isFutureOrCurrentMonth && projectionAverage > 0 && displayTotals[mes] === 0) {
-        displayTotals[mes] = projectionAverage
-      }
-      grandTotal += displayTotals[mes]
-    })
-
-    return { displayTotals, displayGrandTotal: grandTotal }
-  }, [
-    actualMonthTotals,
-    projectionAverage,
-    selectedYear,
-    currentYear,
-    currentMonthIndex,
-  ]);
 
   if (loading) {
     return (
@@ -171,8 +133,8 @@ export function ExpenseTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {expenses.map((despesa) => {
-            const totalLinha = Object.values(despesa.valores).reduce(
+          {displayExpenses.map((despesa) => {
+            const totalLinha = Object.values(despesa.displayValores).reduce(
               (acc, val) => acc + val,
               0
             )
@@ -180,25 +142,31 @@ export function ExpenseTable() {
               <TableRow key={despesa.id}>
                 <TableCell className="font-medium">{despesa.vencimento}</TableCell>
                 <TableCell>{despesa.descricao}</TableCell>
-                {MESES.map((mes, index) => (
+                {MESES.map((mes, index) => {
+                  const isProjected = despesa.isMesProjected[mes];
+                  const displayValue = despesa.displayValores[mes];
+                  return (
                   <TableCell
                     key={mes}
                     onClick={() => handleCellClick(despesa.id, mes)}
                     className={cn(
                       "text-right cursor-pointer hover:bg-accent/50",
-                      index === currentMonthIndex && selectedYear === currentYear && "bg-accent/20"
+                      index === currentMonthIndex && selectedYear === currentYear && "bg-accent/20",
+                      isProjected && "text-muted-foreground italic"
                     )}
                   >
                     <div className="flex items-center justify-end gap-2">
-                        {despesa.statusPagamento[mes] ? (
+                        {isProjected ? (
+                            <Wand2 className="h-4 w-4" />
+                        ) : despesa.statusPagamento[mes] ? (
                             <Check className="h-4 w-4 text-green-500" />
                         ) : (
                            (despesa.valores[mes] > 0) && <X className="h-4 w-4 text-red-500" />
                         )}
-                        <span>{formatCurrency(despesa.valores[mes])}</span>
+                        <span>{formatCurrency(displayValue)}</span>
                     </div>
                   </TableCell>
-                ))}
+                )})}
                 <TableCell className="text-right font-semibold">
                   {formatCurrency(totalLinha)}
                 </TableCell>
@@ -210,29 +178,20 @@ export function ExpenseTable() {
           <TableRow>
             <TableCell colSpan={2} className="font-bold">Total Mensal</TableCell>
             {MESES.map((mes, index) => {
-              const isFutureOrCurrentMonth =
-                selectedYear > currentYear ||
-                (selectedYear === currentYear && index >= currentMonthIndex)
-              const isProjected = isFutureOrCurrentMonth && projectionAverage > 0 && actualMonthTotals[mes] === 0
-
               return (
                 <TableCell 
                   key={mes} 
                   className={cn(
                     "text-right font-bold", 
-                    index === currentMonthIndex && selectedYear === currentYear && "bg-accent/20",
-                    isProjected && "text-muted-foreground italic"
+                    index === currentMonthIndex && selectedYear === currentYear && "bg-accent/20"
                   )}
                 >
-                  <div className="flex items-center justify-end gap-2">
-                    {isProjected && <Wand2 className="h-4 w-4" />}
-                    <span>{formatCurrency(displayTotals[mes])}</span>
-                  </div>
+                  {formatCurrency(monthTotals[mes])}
                 </TableCell>
               )
             })}
             <TableCell className="text-right font-extrabold text-base">
-                {formatCurrency(displayGrandTotal)}
+                {formatCurrency(grandTotal)}
             </TableCell>
           </TableRow>
         </TableFooter>

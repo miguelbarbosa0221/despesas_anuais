@@ -9,6 +9,7 @@ export interface Despesa {
   vencimento: number; // Dia do mês (1-31)
   descricao: string;
   arquivado: boolean;
+  projetavel?: boolean;
   // Valores monetários por mês
   valores: Record<Mes, number>;
   // Status de pagamento (true = pago, false = pendente)

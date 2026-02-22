@@ -47,6 +47,7 @@ const formSchema = z.object({
     .max(31, { message: "O dia deve ser no máximo 31." }),
   valorBase: z.coerce.number().min(0, { message: "O valor não pode ser negativo." }),
   recorrente: z.boolean().default(false),
+  projetavel: z.boolean().default(false),
   mesUnico: z.string().optional(),
 })
 
@@ -64,6 +65,7 @@ export function AddExpenseForm() {
       vencimento: new Date().getDate(),
       valorBase: 0,
       recorrente: true,
+      projetavel: false,
     },
   })
 
@@ -92,6 +94,7 @@ export function AddExpenseForm() {
         ano: selectedYear,
         descricao: values.descricao,
         vencimento: values.vencimento,
+        projetavel: values.projetavel,
         valores,
         statusPagamento,
         uid: user.uid,
@@ -183,6 +186,29 @@ export function AddExpenseForm() {
                     </FormLabel>
                     <p className="text-sm text-muted-foreground">
                         Marque se o valor base se aplica a todos os meses.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="projetavel"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Projeção Inteligente
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                        Calcula a média dos meses pagos e preenche os meses futuros vazios.
                     </p>
                   </div>
                 </FormItem>
