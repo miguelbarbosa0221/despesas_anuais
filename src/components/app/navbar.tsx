@@ -30,6 +30,7 @@ import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } f
 import { MESES } from "@/lib/constants"
 import { Mes } from "@/lib/types"
 import Link from "next/link"
+import { ThemeToggle } from "./theme-toggle"
 
 export function Navbar() {
   const { user } = useUser()
@@ -154,6 +155,8 @@ export function Navbar() {
             <CirclePlus className="mr-2 h-4 w-4" />
             Nova Despesa
           </Button>
+
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
